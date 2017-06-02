@@ -1,0 +1,45 @@
+library(sp)
+library(ggplot2)
+library(rgeos)
+library(rgdal)
+library(maptools)
+library(tigris)
+##reading data in from text file
+df1<-read.table("Fips.txt")
+#Give columns the names we want
+colnames(df5)<-c("GEOID","Enrollments")
+#changes each column to numeric
+#merge new columns into a dataframe, df5
+df2<-as.numeric(as.character(df1$Enrollments))
+df4<-as.numeric(as.character(df1$GEOID))
+df5<-data.frame(df4,df2)
+
+#Add a leading 0 to 4 digit fips codes
+df5$GEOID<-formatC(df5$GEOID, width=5,format="d",flag="0")
+
+# Download county shape file from Tiger.
+# https://www.census.gov/geo/maps-data/data/cbf/cbf_counties.html
+# you want to click on 2013 and download the 20m file
+us.map <- readOGR(dsn = ".", layer = "cb_2013_us_county_20m", stringsAsFactors = FALSE)
+#remove unwanted us territories and states, Guam, Alaska...
+us.map <- us.map[!us.map$STATEFP %in% c("02", "15", "72", "66", "78", "60", "69",
+                                        "64", "68", "70", "74"),]
+
+
+#combine our data and Tiger data
+newleafmap<-merge(us.map,df5, by =c("GEOID"))
+#declare what we want in our pop up window
+newpopup_dat <- paste0("<strong>County: </strong>", 
+                    newleafmap$NAME, 
+                    "<br><strong>Value: </strong>", 
+                    newleafmap$Enrollments)
+# 9 color gradient from Yellow to Red
+pal <- colorQuantile("YlOrRd", NULL, n = 9)
+
+#creating the actual graph
+leaflet(data = newleafmap) %>% addTiles() %>%
+  addPolygons(fillColor = ~pal(Enrollments), 
+              fillOpacity = 0.8, 
+              color = "#BDBDC3", 
+              weight = 1,
+              popup = newpopup_dat)
